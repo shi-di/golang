@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Service - Поиск заказов</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: center;
+        }
+
+        #orderUID {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        #orderUID:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #searchBtn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        #searchBtn:hover {
+            transform: translateY(-2px);
+        }
+
+        #searchBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c62828;
+        }
+
+        .order-info {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .order-uid {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .order-date {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .info-section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-label {
+            font-size: 0.8em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-weight: bold;
+            color: #333;
+            margin-top: 2px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .items-table th,
+        .items-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .items-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 1px;
+        }
+
+        .items-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .price {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .search-form {
+                flex-direction: column;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .items-table {
+                font-size: 0.8em;
+            }
+
+            .items-table th,
+            .items-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+    <!-- React via CDN (без сборки) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function OrderInfo({ order }) {
+            const orderDate = new Date(order.date_created).toLocaleString('ru-RU');
+            return (
+                <div className="order-info">
+                    <div className="order-header">
+                        <div className="order-uid">Заказ: {order.order_uid}</div>
+                        <div className="order-date">Создан: {orderDate}</div>
+                    </div>
+
+                    <div className="info-section">
+                        <div className="section-title">Основная информация</div>
+                        <div className="info-grid">
+                            <div className="info-item">
+                                <div className="info-label">Трек-номер</div>
+                                <div className="info-value">{order.track_number}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Точка входа</div>
+                                <div className="info-value">{order.entry}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Клиент</div>
+                                <div className="info-value">{order.customer_id}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Служба доставки</div>
+                                <div className="info-value">{order.delivery_service}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="info-section">
+                        <div className="section-title">Доставка</div>
+                        <div className="info-grid">
+                            <div className="info-item">
+                                <div className="info-label">Получатель</div>
+                                <div className="info-value">{order.delivery?.name}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Телефон</div>
+                                <div className="info-value">{order.delivery?.phone}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Email</div>
+                                <div className="info-value">{order.delivery?.email}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Адрес</div>
+                                <div className="info-value">{`${order.delivery?.address}, ${order.delivery?.city}, ${order.delivery?.zip}`}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="info-section">
+                        <div className="section-title">Оплата</div>
+                        <div className="info-grid">
+                            <div className="info-item">
+                                <div className="info-label">Сумма</div>
+                                <div className="info-value price">{order.payment?.amount} {order.payment?.currency}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Провайдер</div>
+                                <div className="info-value">{order.payment?.provider}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Банк</div>
+                                <div className="info-value">{order.payment?.bank}</div>
+                            </div>
+                            <div className="info-item">
+                                <div className="info-label">Доставка</div>
+                                <div className="info-value price">{order.payment?.delivery_cost} {order.payment?.currency}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="info-section">
+                        <div className="section-title">Товары</div>
+                        <table className="items-table">
+                            <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Бренд</th>
+                                    <th>Размер</th>
+                                    <th>Цена</th>
+                                    <th>Скидка</th>
+                                    <th>Итого</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(order.items || []).map((item, idx) => (
+                                    <tr key={idx}>
+                                        <td>{item.name}</td>
+                                        <td>{item.brand}</td>
+                                        <td>{item.size}</td>
+                                        <td className="price">{item.price}</td>
+                                        <td>{item.sale}%</td>
+                                        <td className="price">{item.total_price}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [orderUID, setOrderUID] = useState("");
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState("");
+            const [order, setOrder] = useState(null);
+
+            const searchOrder = async () => {
+                const uid = orderUID.trim();
+                if (!uid) {
+                    setError("Пожалуйста, введите UID заказа");
+                    return;
+                }
+                setError("");
+                setOrder(null);
+                setLoading(true);
+                try {
+                    const resp = await fetch(`/order/${uid}`);
+                    if (!resp.ok) {
+                        if (resp.status === 404) throw new Error("Заказ не найден");
+                        throw new Error("Ошибка сервера");
+                    }
+                    const data = await resp.json();
+                    setOrder(data);
+                } catch (e) {
+                    setError(e.message || "Ошибка запроса");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === "Enter") {
+                    searchOrder();
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>🛒 Order Service</h1>
+
+                    <div className="search-form">
+                        <input
+                            type="text"
+                            id="orderUID"
+                            placeholder="Введите UID заказа (например: b563feb7b2b84b6test)"
+                            value={orderUID}
+                            onChange={(e) => setOrderUID(e.target.value)}
+                            onKeyDown={onKeyDown}
+                        />
+                        <button id="searchBtn" onClick={searchOrder} disabled={loading}>
+                            Найти заказ
+                        </button>
+                    </div>
+
+                    {loading && (
+                        <div id="loading" className="loading">Поиск заказа...</div>
+                    )}
+
+                    {!!error && (
+                        <div id="error" className="error">{error}</div>
+                    )}
+
+                    {order && (
+                        <div id="orderInfo">
+                            <OrderInfo order={order} />
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
